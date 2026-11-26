@@ -22,7 +22,7 @@ jobs:
   quick:
     # 提交/PR 只跑稳定子集：已知产品缺陷（正文 iframe 被 CSP 拦截）不阻塞流水线
     if: github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
   full:
     # 定时或手动触发：跑全量并保留失败轨迹，用来观察已知缺陷是否修复
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       QRVIDEA_QA_VIDEO_URL: ${{ vars.QRVIDEA_QA_VIDEO_URL }}
