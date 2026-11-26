@@ -17,7 +17,11 @@ def test_homepage_explains_how_to_create_a_qr(page: Page, base_url: str) -> None
     expect(page.locator("html")).to_have_attribute("lang", "es-MX")
     expect(page.get_by_role("heading", level=1)).to_contain_text("en un código QR")
 
-    page.get_by_role("link", name="Cómo funciona", exact=True).click()
+    # "Cómo funciona" 同时出现在 hero CTA 和页脚导航里，必须限定作用域，
+    # 否则会依赖 i18n 填充文案的时序（本地能过、CI 上 strict mode 冲突）。
+    page.locator(".marketing-copy .marketing-buttons").get_by_role(
+        "link", name="Cómo funciona", exact=True
+    ).click()
 
     expect(page).to_have_url(re.compile(r"#como-funciona$"))
     expect(page.locator("#como-funciona").get_by_role("heading", level=2)).to_be_in_viewport()
