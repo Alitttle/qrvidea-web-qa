@@ -1,0 +1,85 @@
+name: web-qa
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # 每周一 09:00 (UTC+8) 对线上站点跑全量
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 目标站点
+        required: false
+        default: https://videa.qrveo.com
+      marker:
+        description: 只跑指定 marker（smoke / solutions / security / media）
+        required: false
+        default: ""
+
+jobs:
+  quick:
+    # 提交/PR 只跑稳定子集：已知产品缺陷（正文 iframe 被 CSP 拦截）不阻塞流水线
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Run smoke and security suites
+        run: python -m pytest -m "smoke or security" --junitxml=artifacts/junit.xml
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-report
+          path: |
+            artifacts/junit.xml
+            artifacts/browser
+          if-no-files-found: ignore
+
+  full:
+    # 定时或手动触发：跑全量并保留失败轨迹，用来观察已知缺陷是否修复
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      QRVIDEA_QA_VIDEO_URL: ${{ vars.QRVIDEA_QA_VIDEO_URL }}
+      QRVIDEA_QA_VIDEO_TITLE: ${{ vars.QRVIDEA_QA_VIDEO_TITLE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Run full suite
+        run: |
+          python -m pytest \
+            --base-url "${{ inputs.base_url || 'https://videa.qrveo.com' }}" \
+            --tracing=retain-on-failure \
+            --junitxml=artifacts/junit.xml \
+            ${{ inputs.marker && format('-m {0}', inputs.marker) || '' }}
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-report
+          path: |
+            artifacts/junit.xml
+            artifacts/browser
+            test-results
+          if-no-files-found: ignore
