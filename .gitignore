@@ -12,3 +12,6 @@ allure-results/
 *.log
 .DS_Store
 Thumbs.db
+
+# 临时排障日志
+log.txt
